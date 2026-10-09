@@ -79,14 +79,22 @@ converged, with a J statistic of 3.10 on 2 degrees of freedom and implied
 weights between 0.96 and 1.07 times 1/n. The CUE estimate took 362 seconds on
 Stata/BE.
 
-## Pending
+On 9 October 2026 the cell-level engine of version 0.2.0 compiled without errors
+on the same installation. In the second block of `01_selftest.do`, on 1200
+observations grouped in 60 cells in shuffled order, all 25 checks pass for ET,
+EL and CUE. The dual value, gradient and Hessian of the two engines differ by at
+most 2.2e-16, the envelope gradients by at most 2.4e-17, the coefficients by at
+most 2.8e-17, and covariances, criteria and implied weights in the original order
+by at most 5.6e-17. The row-level block, the CUE benchmark against `ivreg2` and
+all the Card gates still pass. On Angrist and Krueger with 3 excluded
+instruments, `cells(gel_cell)` reproduces the row-level CUE and ET estimates on
+all 61 coefficients and their standard errors to the displayed precision, with
+education coefficients of 0.108965 and 0.1089056, identical diagnostics for ET,
+including J=3.0924534 and an effective sample size of 329505.9, and running times
+of 52 seconds for CUE and 80 seconds for ET, against 362 seconds for the
+row-level CUE.
 
-The cell-level engine of version 0.2.0 has not yet been compiled in Stata. Its
-acceptance requires the second block of `01_selftest.do`, which compares the two
-engines on shuffled cell data for ET, EL and CUE, the unchanged Card gates, and
-the reproduction of the row-level estimates on Angrist and Krueger with 3
-excluded instruments, 0.108965 for CUE and 0.1089056 for ET, through
-`cells(gel_cell)`.
+## Pending
 
 The estimates with 30 and 180 excluded instruments, the full-sample comparison
 in `22_ak_weakiv.do`, the analysis of implied weights in `40_geometry.do` and
