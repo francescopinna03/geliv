@@ -94,10 +94,54 @@ including J=3.0924534 and an effective sample size of 329505.9, and running time
 of 52 seconds for CUE and 80 seconds for ET, against 362 seconds for the
 row-level CUE.
 
+## Angrist and Krueger estimates
+
+`21_ak_estimate.do` ran on 9 October 2026 with the cell-level engine and
+completed its 18 estimates in 1097 seconds on Stata/BE 19.0, with every
+estimator converging. The table reports the coefficient on education, the
+conventional standard error in parentheses, and for the GEL estimators the
+overidentification statistic `Jgel` with its chi-squared p-value. The sample has
+329509 observations in every cell of the table.
+
+| Excluded instruments | OLS | 2SLS | LIML | CUE | ET | EL |
+|---:|---:|---:|---:|---:|---:|---:|
+| 3 | 0.0673 (0.0004) | 0.1077 (0.0196) | 0.1089 (0.0202) | 0.1090 (0.0196) | 0.1089 (0.0196) | 0.1088 (0.0196) |
+| 30 | 0.0673 (0.0004) | 0.0869 (0.0159) | 0.0905 (0.0188) | 0.0925 (0.0159) | 0.0922 (0.0159) | 0.0919 (0.0159) |
+| 180 | 0.0673 (0.0004) | 0.0928 (0.0097) | 0.1064 (0.0150) | 0.1068 (0.0096) | 0.1063 (0.0096) | 0.1056 (0.0096) |
+
+| Excluded instruments | Degrees of freedom | J for CUE | J for ET | J for EL | Smallest effective sample size |
+|---:|---:|---:|---:|---:|---:|
+| 3 | 2 | 3.10 (0.21) | 3.09 (0.21) | 3.09 (0.21) | 329505.9 |
+| 30 | 29 | 23.80 (0.74) | 23.95 (0.73) | 24.05 (0.73) | 329485.1 |
+| 180 | 179 | 161.26 (0.83) | 162.71 (0.80) | 162.53 (0.81) | 329341.5 |
+
+The 2SLS coefficients reproduce the Python audit to every reported digit, at
+0.1076937, 0.0869302 and 0.0928181, and the Cragg-Donald statistics reported by
+`ivreg2`, 36.04, 5.36 and 2.58, coincide with the audit as well, which confirms
+that the Stata construction of the 30 and 180 instruments matches the
+independent one. The overidentification statistics reject none of the three
+specifications at conventional levels, and the effective sample sizes never
+fall below 329341, so the tilting required to satisfy the moments remains mild
+throughout.
+
+With 180 instruments the three GEL estimates, between 0.1056 and 0.1068, lie
+close to LIML at 0.1064 and well above 2SLS at 0.0928. This pattern is
+consistent with the many-instrument bias of 2SLS toward OLS and with the
+higher-order results of Newey and Smith (2004), although on real data the
+distance between estimators identifies no bias without knowledge of the true
+coefficient, and with heterogeneous effects different instrument sets may weight
+different subpopulations. The calibrated simulation is the step that measures
+bias. Within the GEL family the ordering CUE, ET, EL holds in all three
+specifications, with differences of at most 0.12 conventional standard errors.
+With 180 instruments the conventional GEL standard errors, about 0.0096, are as
+small as those of 2SLS and omit the variance inflation that many weak
+instruments produce, so inference on these specifications should rest on the
+robust tests of `22_ak_weakiv.do`.
+
 ## Pending
 
-The estimates with 30 and 180 excluded instruments, the full-sample comparison
-in `22_ak_weakiv.do`, the analysis of implied weights in `40_geometry.do` and
-the calibrated simulation in `30_mc.do` remain to be run. The gates already
-passed certify the engine on the cases described above and extend to the
-Angrist and Krueger results only once each script has run its own checks.
+The full-sample comparison in `22_ak_weakiv.do`, the analysis of implied weights
+in `40_geometry.do` and the calibrated simulation in `30_mc.do` remain to be
+run. The gates already passed certify the engine on the cases described above,
+and the remaining Angrist and Krueger results acquire the same status only once
+each script has run its own checks.

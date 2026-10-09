@@ -1,6 +1,6 @@
 # GELIV, a Mata laboratory for weak instruments
 
-Version 0.2.1, 9 October 2026. Research code for Stata 16 or later.
+Version 0.2.2, 9 October 2026. Research code for Stata 16 or later.
 
 GELIV implements exponential tilting (ET), empirical likelihood (EL) and the
 continuously updated estimator (CUE) from first principles in Mata for the
@@ -27,9 +27,12 @@ cell-level engine introduced in version 0.2.0 was verified against the row-level
 formulas in Python, with the report in `output/cells_validation.json`, and on 9
 October 2026 it compiled in Stata, matched the row-level engine to machine
 precision in the self-test and reproduced the row-level Angrist and Krueger
-estimates with 3 excluded instruments exactly. Full estimates with 30 and 180
-instruments and the calibrated simulation remain to be run, and the package
-contains no empirical table that anticipates them.
+estimates with 3 excluded instruments exactly. On the same day the full Angrist
+and Krueger table, with OLS, 2SLS, LIML, CUE, ET and EL for 3, 30 and 180
+excluded instruments, ran in 18 minutes with every estimator converging. The
+results are in `output/ak_results.csv` and are discussed in `docs/VALIDATION.md`.
+Robust weak-instrument inference on the full sample, the analysis of implied
+weights and the calibrated simulation remain to be run.
 
 ## Getting started
 
@@ -70,7 +73,8 @@ raised before a final simulation, and the large simulation should only follow
 the synthetic and Card checks. The Mata engine performs no network operation.
 On Stata/BE 19.0 a single row-level CUE estimate with 3 excluded instruments
 took 362 seconds on the full sample, against 52 seconds for the same estimate
-with `cells()` and 80 seconds for ET. Since the row-level cost grows with the
+with `cells()` and 80 seconds for ET, and `21_ak_estimate.do` completes its 18
+estimates in 1097 seconds. Since the row-level cost grows with the
 square of the number of moments, the pipeline passes the cell index built by
 `20_ak_prepare.do` to every call of `geliv`.
 
