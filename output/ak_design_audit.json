@@ -1,0 +1,30 @@
+{
+  "raw_n": 329509,
+  "common_n": 329509,
+  "controls_including_constant": 60,
+  "ols_education": 0.0673389707513159,
+  "specifications": [
+    {
+      "excluded": 3,
+      "total_moments": 63,
+      "instrument_rank": 63,
+      "tsls_education": 0.10769370481339952,
+      "first_stage_F_homoskedastic": 36.036354193188494
+    },
+    {
+      "excluded": 30,
+      "total_moments": 90,
+      "instrument_rank": 90,
+      "tsls_education": 0.08693020029735776,
+      "first_stage_F_homoskedastic": 5.363572395430282
+    },
+    {
+      "excluded": 180,
+      "total_moments": 240,
+      "instrument_rank": 240,
+      "tsls_education": 0.09281805631105225,
+      "first_stage_F_homoskedastic": 2.5823405177902337
+    }
+  ],
+  "scope": "Python sparse crossproduct audit, not Stata or GEL validation"
+}
