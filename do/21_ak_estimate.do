@@ -15,7 +15,7 @@ foreach k in $GEL_SPECS {
         else if "`method'"=="tsls" capture noisily ivreg2 $GEL_Y $GEL_W ($GEL_X=`zz'), robust first
         else if "`method'"=="liml" capture noisily ivreg2 $GEL_Y $GEL_W ($GEL_X=`zz'), liml robust
         else {
-            capture noisily geliv $GEL_Y, endog($GEL_X) controls($GEL_W) instruments(`zz') method(`method') weights(p`k'_`method')
+            capture noisily geliv $GEL_Y, endog($GEL_X) controls($GEL_W) instruments(`zz') method(`method') weights(p`k'_`method') cells($GEL_CELL)
         }
         local rc=_rc
         if `rc'==0 {

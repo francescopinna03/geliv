@@ -58,6 +58,11 @@ global GEL_Z3 `Z3'
 global GEL_Z30 `Z30'
 global GEL_Z180 `Z180'
 global GEL_ZMAX `Z180'
+egen int gel_cell=group(yob qob pob)
+quietly summarize gel_cell
+assert r(max)<=2040
+global GEL_CELL gel_cell
+display "Instruments and controls are constant within " r(max) " birth year, quarter and state cells."
 compress
 save output/ak_ready.dta, replace
 display "Common sample N=" _N "; 59 controls plus intercept; 3/30/180 excluded instruments."

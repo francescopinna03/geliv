@@ -2,7 +2,7 @@ version 16.0
 * Current design globals required. No partialling out inside GEL.
 local zz $GEL_ZMAX
 capture drop gel_probability gel_nweight gel_logratio gel_klcell
-geliv $GEL_Y, endog($GEL_X) controls($GEL_W) instruments(`zz') method(et) weights(gel_probability)
+geliv $GEL_Y, endog($GEL_X) controls($GEL_W) instruments(`zz') method(et) weights(gel_probability) cells($GEL_CELL)
 generate double gel_nweight=e(N)*gel_probability if e(sample)
 generate double gel_logratio=ln(gel_nweight) if gel_probability>0
 generate double gel_klcell=gel_probability*gel_logratio if gel_probability>0

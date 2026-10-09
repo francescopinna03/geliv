@@ -53,7 +53,7 @@ foreach strength of local mu2grid {
                 if "`method'"=="ols" capture quietly regress `ysim' `xsim' $GEL_W, vce(robust)
                 else if "`method'"=="tsls" capture quietly ivregress 2sls `ysim' $GEL_W (`xsim'=`zz'), vce(robust)
                 else if "`method'"=="liml" capture quietly ivregress liml `ysim' $GEL_W (`xsim'=`zz'), vce(robust)
-                else capture quietly geliv `ysim', endog(`xsim') controls($GEL_W) instruments(`zz') method(`method')
+                else capture quietly geliv `ysim', endog(`xsim') controls($GEL_W) instruments(`zz') method(`method') cells($GEL_CELL)
                 local rc=_rc
                 if `rc'==0 {
                     if inlist("`method'","cue","et","el") local ess=e(ess)
