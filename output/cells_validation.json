@@ -1,0 +1,19 @@
+{
+  "n": 1200,
+  "cells": 60,
+  "checks": {
+    "scaling": 1.3322676295501878e-15,
+    "tsls": 6.938893903907228e-16,
+    "ols": 1.942890293094024e-16,
+    "vcov": 6.938893903907228e-18,
+    "et_inner_value_gradient_hessian": 5.995204332975845e-15,
+    "et_envelope_gradient": 7.979727989493313e-17,
+    "el_inner_value_gradient_hessian": 1.4210854715202004e-14,
+    "el_envelope_gradient": 2.636779683484747e-16,
+    "cue_inner_value_gradient_hessian": 4.6629367034256575e-15,
+    "cue_envelope_gradient": 1.1102230246251565e-16,
+    "weight_reordering": 2.220446049250313e-16
+  },
+  "tolerance": 1e-10,
+  "passed": true
+}

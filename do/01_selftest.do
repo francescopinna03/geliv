@@ -11,6 +11,7 @@ generate double one=1
 capture mata: mata drop gel_check()
 capture mata: mata drop gel_show_starts()
 capture mata: mata drop gel_selftest()
+capture mata: mata drop gel_selftest_cells()
 mata:
 real scalar gel_check(string scalar label, real scalar pass, real scalar value)
 {
@@ -93,10 +94,71 @@ void gel_selftest()
         npts++
     }
     fails=fails+gel_check(sprintf("AR inversion vs grid over %g points", npts), mismatch==0, mismatch)
-    printf("\nTOTAL FAILED CHECKS: %g\n", fails)
+    printf("\nFAILED CHECKS IN ROW-ENGINE BLOCK: %g\n", fails)
     st_numscalar("GEL_FAILS",fails)
 }
+void gel_selftest_cells()
+{
+    struct gel_data scalar dr,dc
+    struct gel_dual scalar sr,sc
+    struct gel_result scalar rr,rc
+    fails=0
+    n=1200
+    C=60
+    cell=ceil((1::n)/(n/C))
+    cell=cell[jumble(1::n)]
+    zc=rnormal(C,2,0,1)
+    wc=rnormal(C,1,0,1)
+    v0=rnormal(n,1,0,1)
+    x=zc[cell,1]+.3*zc[cell,2]+v0
+    y=.7*x+.2*wc[cell]+.5*v0+rnormal(n,1,0,1)
+    y=y:+.2
+    W=(wc[cell],J(n,1,1))
+    Z=(zc[cell,.],W)
+    X=(x,W)
+    printf("\ncell-aggregated engine against row engine, %g observations\n", n)
+    dr=gel_data_init(y,X,Z,1,97)
+    dc=gel_data_cells(y,x,W,Z,cell,1,97)
+    fails=fails+gel_check(sprintf("cells detected: %g", dc.cells), dc.cells==C, dc.cells)
+    dif=max(abs((dr.sx,dr.sz)-(dc.sx,dc.sz)))
+    fails=fails+gel_check("scaling vectors", dif<1e-12, dif)
+    b2r=gel_2sls(dr)
+    b2c=gel_2sls(dc)
+    fails=fails+gel_check("2sls starting values", max(abs(b2r-b2c))<1e-10, max(abs(b2r-b2c)))
+    olr=qrsolve(X,y)'
+    olc=gel_ols_cells(dc)
+    fails=fails+gel_check("ols starting values", max(abs(olr-olc))<1e-9, max(abs(olr-olc)))
+    starts=b2r\olr
+    for(method=-1;method<=1;method++) {
+        dr.method=method
+        dc.method=method
+        b=(.71,.18,.21):*dr.sx
+        lam=J(dr.m,1,.02)
+        sr=gel_stats(dr,b,lam,1)
+        sc=gel_stats(dc,b,lam,1)
+        dif=max((abs(sr.f-sc.f),max(abs(sr.gradient-sc.gradient)),max(abs(sr.H-sc.H))))
+        fails=fails+gel_check(sprintf("method %g dual value, gradient, Hessian", method), dif<1e-11, dif)
+        gel_eval(1,b,dr,qrow,grow,H)
+        gel_eval(1,b,dc,qcel,gcel,H)
+        dif=max((abs(qrow-qcel),max(abs(grow-gcel))))
+        fails=fails+gel_check(sprintf("method %g outer value and envelope gradient", method), dif<1e-10, dif)
+        rr=gel_fit(dr,starts)
+        rc=gel_fit(dc,starts)
+        fails=fails+gel_check(sprintf("method %g both fits converged", method), rr.converged & rc.converged, rc.q)
+        dif=max(abs(rr.b-rc.b))
+        fails=fails+gel_check(sprintf("method %g coefficients", method), dif<1e-7, dif)
+        dif=max(abs(rr.V-rc.V))
+        fails=fails+gel_check(sprintf("method %g covariance", method), dif<1e-8, dif)
+        dif=max(abs(rr.weights-rc.weights))
+        fails=fails+gel_check(sprintf("method %g implied weights, original order", method), dif<1e-9, dif)
+        dif=abs(rr.q-rc.q)
+        fails=fails+gel_check(sprintf("method %g criterion", method), dif<1e-10, dif)
+    }
+    printf("\nFAILED CHECKS IN CELL BLOCK: %g\n", fails)
+    st_numscalar("GEL_FAILS",st_numscalar("GEL_FAILS")+fails)
+}
 gel_selftest()
+gel_selftest_cells()
 end
 capture which ivreg2
 if _rc == 0 {

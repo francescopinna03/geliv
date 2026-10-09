@@ -1,14 +1,16 @@
-*! GELIV 0.1 07oct2026 - research implementation, Stata 16+
+*! GELIV 0.2.0 09oct2026 - research implementation, Stata 16+
 program define geliv, eclass
     version 16.0
     syntax varname(numeric) [if] [in], ENDog(varlist numeric) ///
         INSTruments(varlist numeric) [CONTrols(varlist numeric) ///
-        METHOD(string) BLOCK(integer 4096) FROM(name) WEIGHTS(name) NOCONStant]
+        METHOD(string) BLOCK(integer 4096) FROM(name) WEIGHTS(name) NOCONStant ///
+        CELLs(varname numeric)]
     if "`method'" == "" local method et
     if !inlist("`method'", "et", "el", "cue") error 198
     local gamma = cond("`method'"=="et",0,cond("`method'"=="el",-1,1))
     marksample touse
-    markout `touse' `endog' `instruments' `controls'
+    markout `touse' `endog' `instruments' `controls' `cells'
+    local ne : word count `endog'
     tempvar cons
     local x `endog' `controls'
     local z `instruments' `controls'
@@ -25,7 +27,7 @@ program define geliv, eclass
     }
     tempname b V D S
     mata: gel_stata("`varlist'","`x'","`z'","`touse'",`gamma',`block', ///
-        "`from'","`b'","`V'","`D'","`weights'","`S'")
+        "`from'","`b'","`V'","`D'","`weights'","`S'","`cells'",`ne')
     matrix colnames `D' = converged q Jgel Jdistance inner_error outer_error ///
         moment_error ess min_nw max_nw negative N m p
     if `D'[1,1] != 1 {
@@ -46,6 +48,7 @@ program define geliv, eclass
     ereturn scalar ess = `D'[1,8]
     ereturn scalar converged = 1
     ereturn local method "`method'"
+    ereturn local cells "`cells'"
     ereturn local cmd "geliv"
     di as text "GEL `method': conventional HC0 strong-identification covariance"
     ereturn display
