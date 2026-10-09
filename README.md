@@ -1,50 +1,61 @@
-# GELIV, laboratorio Mata per strumenti deboli
+# GELIV, a Mata laboratory for weak instruments
 
-Versione 0.1.3, 9 ottobre 2026. Codice di ricerca per Stata 16 o successivo.
+Version 0.2.0, 9 October 2026. Research code for Stata 16 or later.
 
-Implementa ET, EL e CUE da zero in Mata per il modello IV lineare. Il duale usa
-Newton smorzato e derivate analitiche. Il problema esterno usa `optimize()` con
-BFGS, gradiente dell'inviluppo e più punti iniziali. Controlli e intercetta
-restano nel modello e nei momenti. I momenti vengono costruiti solo a blocchi.
+GELIV implements exponential tilting (ET), empirical likelihood (EL) and the
+continuously updated estimator (CUE) from first principles in Mata for the
+linear instrumental variables model. The inner dual problem is solved by damped
+Newton with analytic gradient and Hessian, and the outer problem by BFGS through
+`optimize()`, with the envelope gradient and several starting points. Controls
+and the intercept remain in the model and in the moment conditions, and the
+moments are accumulated in blocks without ever storing the full n by m matrix.
 
-Le formule e gli algoritmi sono stati controllati numericamente in Python, con
-il rapporto in `output/math_validation.json`. Dall'8 ottobre 2026 i moduli Mata
-e il comando `geliv` sono compilati ed eseguiti in Stata/BE 19.0, dove superano
-il self-test sintetico, il confronto del CUE sovraidentificato con `ivreg2` e i
-gate di accettazione su Card, descritti in dettaglio in `docs/VALIDATION.md`.
-Le stime complete su Angrist e Krueger e la simulazione calibrata restano da
-eseguire, e il pacchetto non contiene tabelle empiriche che le anticipino.
+When instruments and exogenous regressors are constant within the cells of a
+discrete grouping, as in designs built on year, quarter and state of birth, the
+option `cells()` switches to an engine that aggregates individual weights within
+each cell before forming outer products of the moments. The cost of one
+evaluation then falls from the order of n m² to the order of n + C m², where C
+is the number of cells, and every estimator, covariance and implied weight is
+the same as in the row-level engine.
 
-## Avvio
+The formulas and algorithms were checked numerically in Python, with the report
+in `output/math_validation.json`. Since 8 October 2026 the row-level engine and
+the `geliv` command have been compiled and run in Stata/BE 19.0, where they pass
+the synthetic self-test, the comparison of the overidentified CUE with `ivreg2`
+and the acceptance gates on Card, all documented in `docs/VALIDATION.md`. The
+cell-level engine introduced in version 0.2.0 has been verified against the
+row-level formulas in Python, with the report in `output/cells_validation.json`,
+and its compilation in Stata is pending, after which the self-test compares the
+two engines directly. Full estimates on Angrist and Krueger and the calibrated
+simulation remain to be run, and the package contains no empirical table that
+anticipates them.
 
-Estrarre il pacchetto e impostarne la cartella come directory corrente in Stata.
+## Getting started
+
+Extract the package and set its folder as the current directory in Stata. The
+benchmarks rely on external packages, which `install_deps.do` installs once.
 
 ```stata
-cd "/percorso/geliv_toolkit"
-do do/00_setup.do
-do do/01_selftest.do
+cd "/path/to/geliv_toolkit"
+do install_deps.do
+do run_selftest.do
+do do/run_card_checks.do
 ```
 
-I benchmark richiedono pacchetti esterni, da installare una volta.
+`run_selftest.do` loads the Mata modules through `do/00_setup.do`, runs
+`do/01_selftest.do` and writes `run_selftest.log`. The Card runner downloads the
+data through `bcuse` and writes `output/acceptance.log`.
 
-```stata
-ssc install ivreg2
-ssc install ranktest
-ssc install avar
-ssc install weakiv
-ssc install bcuse
-do do/10_card.do
-do do/11_weakiv_benchmark.do
-```
-
-Per Angrist–Krueger, scaricare l'estratto ufficiale dal terminale e poi avviare
-la preparazione in Stata. Il download calcola l'hash del file sorgente.
+For Angrist and Krueger, the official extract is downloaded from the terminal
+and the pipeline then runs in Stata. The downloader records the SHA-256 hash of
+the source archive.
 
 ```bash
 python3 python/download_data.py ak-minimal
 ```
 
 ```stata
+do do/00_setup.do
 do do/20_ak_prepare.do
 do do/21_ak_estimate.do
 do do/22_ak_weakiv.do
@@ -52,16 +63,15 @@ do do/40_geometry.do
 do do/30_mc.do
 ```
 
-`30_mc.do` contiene una configurazione pilota da 20 repliche. Modificarla prima
-di una simulazione finale. Con 330 mila osservazioni e 240 momenti la stima
-annidata può essere costosa. Non eseguire la simulazione grande prima dei test
-sintetici e di Card. Non sono richieste operazioni di rete al motore Mata.
-Su Stata/BE 19.0 una singola stima CUE con 3 strumenti esclusi ha richiesto circa
-sei minuti, e il costo di ogni valutazione cresce con il quadrato del numero di
-momenti, per cui le specificazioni con 180 strumenti vanno pianificate di
-conseguenza.
+`30_mc.do` holds a pilot configuration with 20 replications, which should be
+raised before a final simulation, and the large simulation should only follow
+the synthetic and Card checks. The Mata engine performs no network operation.
+On Stata/BE 19.0 a single row-level CUE estimate with 3 excluded instruments
+took about six minutes on the full sample, and since the row-level cost grows
+with the square of the number of moments the pipeline passes the cell index
+built by `20_ak_prepare.do` to every call of `geliv`.
 
-## Interfaccia
+## Interface
 
 ```stata
 geliv lwage, endog(educ) controls(exper expersq black smsa south smsa66 ///
@@ -71,105 +81,130 @@ matrix list e(diagnostics)
 matrix list e(starts)
 ```
 
-`method()` accetta `et`, `el`, `cue`. `block(4096)` regola la memoria temporanea.
-`noconstant` elimina l'intercetta. `from(M)` fornisce una matrice di punti iniziali,
-uno per riga, nell'ordine endogene, controlli, intercetta. I coefficienti sono
-espressi nelle unità originali. Sono accettate più endogene nel motore GEL.
-Le variabili devono essere già espanse, senza sintassi factor-variable.
-Non si eliminano silenziosamente strumenti collineari. Controllare il rango.
+`method()` accepts `et`, `el` and `cue`, and `block(4096)` sets the size of the
+temporary blocks in the row-level engine. `noconstant` removes the intercept.
+`from(M)` supplies a matrix of starting values, one per row, ordered as
+endogenous regressors, controls and intercept. Coefficients are reported in the
+original units, and the GEL engine accepts several endogenous regressors.
+Variables must be expanded beforehand, without factor-variable syntax, and
+collinear instruments are never dropped silently, so the rank of the instrument
+matrix is the responsibility of the user.
 
-L'interfaccia Mata usa `gel_data_init(y,X,Z,gamma,block)` e `gel_fit(d,starts)`.
-`X` include endogene, controlli e costante, mentre `Z` include strumenti
-esclusi, controlli e costante. I tre valori di `gamma` sono 0, -1 e 1. Non è un motore
-generico per qualsiasi funzione non lineare dei momenti.
+`cells(varname)` names a numeric variable that indexes the cells within which
+instruments and controls are constant. The command checks this constancy
+exactly, observation by observation, and stops with an error when it fails. The
+endogenous regressors and the outcome may vary freely within cells, at least one
+control or the intercept must be present, and implied weights are returned in
+the original order of the observations. `e(cells)` stores the name of the cell
+variable.
 
-Il risultato Mata contiene coefficienti, moltiplicatori nelle unità originali,
-pesi impliciti, covarianza convenzionale, residui numerici e log dei punti
-iniziali. `e(diagnostics)` contiene nell'ordine
+The Mata interface uses `gel_data_init(y,X,Z,gamma,block)` for the row-level
+engine, `gel_data_cells(y,E,W,Z,cell,gamma,block)` for the cell-level engine and
+`gel_fit(d,starts)` for both. `X` contains the endogenous regressors, the
+controls and the constant, while `Z` contains the excluded instruments, the
+controls and the constant. In the cell-level call, `E` holds the endogenous
+regressors and `W` the controls and the constant. The three values of `gamma`
+are 0 for ET, -1 for EL and 1 for CUE. The engine is specific to the linear IV
+moment function.
 
-| Campo | Significato |
+The Mata result contains coefficients, multipliers in the original units,
+implied weights, the conventional covariance, numerical residuals and the log of
+starting points. `e(diagnostics)` holds the following quantities in this order.
+
+| Field | Meaning |
 |---|---|
-| converged | convergenza esterna e certificazione numerica del duale |
-| q | criterio medio, per ET uguale alla divergenza KL |
-| Jgel | criterio GEL normalizzato, moltiplicato per 2n |
-| Jdistance | 2n volte il criterio usato dall'ottimizzatore |
-| inner_error | norma massima del gradiente interno, normalizzata anche per EL |
-| outer_error | norma massima del gradiente esterno nelle coordinate scalate |
-| moment_error | norma massima dei momenti pesati, strumenti scalati |
-| ess | 1/somma(pesi²), solo per pesi non negativi |
-| min_nw, max_nw | estremi del rapporto tra peso e 1/n |
-| negative | numero di pesi negativi, possibile per CUE |
-| N, m, p | osservazioni, momenti totali, coefficienti totali |
+| converged | outer convergence and numerical certification of the dual |
+| q | mean criterion, equal to the KL divergence for ET |
+| Jgel | normalized GEL criterion multiplied by 2n |
+| Jdistance | 2n times the criterion used by the optimizer |
+| inner_error | maximum norm of the inner gradient, also normalized for EL |
+| outer_error | maximum norm of the outer gradient in scaled coordinates |
+| moment_error | maximum norm of the weighted moments, scaled instruments |
+| ess | 1/sum(weights²), for nonnegative weights only |
+| min_nw, max_nw | extremes of the ratio between weight and 1/n |
+| negative | number of negative weights, possible for CUE |
+| N, m, p | observations, total moments, total coefficients |
 
-`e(starts)` registra codice di errore, flag di convergenza, criterio e norma del
-gradiente per ogni partenza. Il minimo selezionato è il migliore tra le soluzioni
-trovate, non un certificato di ottimalità globale. La matrice `e(V)` è la
-covarianza HC0 di primo ordine sotto identificazione forte e momenti validi.
-Non rende validi gli intervalli Wald sotto identificazione debole.
+`e(starts)` records the return code, the convergence flag, the criterion and
+the gradient norm for each starting point. The selected minimum is the best
+among the solutions found, which carries no certificate of global optimality.
+`e(V)` is the first-order HC0 covariance under strong identification and valid
+moments, and Wald intervals built from it remain invalid under weak
+identification.
 
-## Cosa viene testato
+## What is tested
 
-1. `01_selftest.do` verifica Newton CUE contro forma chiusa, gradienti esterni,
-   invarianza rispetto al blocco, momenti pesati, identificazione esatta e
-   inversione AR. Se disponibile, confronta CUE sovraidentificato con `ivreg2`.
-2. `10_card.do` controlla N=3010 e il coefficiente 2SLS 0.131504 con i controlli
-   dichiarati. ET, EL e CUE devono coincidere nel caso esattamente identificato.
-   Il secondo strumento `nearc2` crea un test numerico sovraidentificato.
-   Non implica una nuova difesa economica della sua validità.
-3. CUE va confrontato con `ivreg2, cue robust`, non con il CUE omoschedastico.
-   La tolleranza sul coefficiente di istruzione è 1e-6.
-4. `11_weakiv_benchmark.do` confronta le statistiche canoniche omoschedastiche
-   con `weakiv`, dopo averle riportate alla forma del moltiplicatore di Lagrange
-   usata da quel comando, AR/(1 + AR/n) e analogamente per K. Il p-value CLR usa simulazione
-   condizionale, quindi ha una tolleranza Monte Carlo, non sei cifre garantite.
-   Se un assert fallisce, il gate resta aperto: investigare prima di procedere.
+`01_selftest.do` checks the CUE Newton iterations against the closed form, the
+outer gradients against finite differences, invariance to the block size, the
+weighted moments, exact identification and the AR inversion. When `ivreg2` is
+installed it compares the overidentified CUE with `ivreg2, cue robust`, which is
+the relevant benchmark because the homoskedastic CUE minimizes a different
+criterion, with a tolerance of 1e-6 on the coefficient of interest. A second
+block of the same file builds data with 60 cells in shuffled order and requires
+the row-level and cell-level engines to agree on the dual value, gradient and
+Hessian, on the envelope gradient, on the 2SLS and OLS starting values and, after
+estimation, on coefficients, covariance, criterion and implied weights in the
+original order, for ET, EL and CUE alike.
 
-## Inferenza inclusa e confini
+`10_card.do` checks N=3010 and the 2SLS coefficient 0.131504 with the declared
+controls, and requires ET, EL and CUE to coincide with it in the exactly
+identified case. The second instrument `nearc2` creates an overidentified
+numerical test, which by itself offers no new economic defence of its validity.
 
-| Funzione | Oggetto | Ipotesi e limiti |
+`11_weakiv_benchmark.do` compares the canonical homoskedastic statistics with
+`weakiv`, after converting them to the Lagrange multiplier form used by that
+command, AR/(1 + AR/n) and likewise for K. The CLR p-value relies on conditional
+simulation and therefore carries a Monte Carlo tolerance. A failed assertion
+keeps the gate open until the discrepancy is understood.
+
+## Inference included and its boundaries
+
+| Function | Object | Assumptions and limits |
 |---|---|---|
-| `gel_full_tests(d,theta0)` | AR/S e K di tipo GMM, intero vettore strutturale | eteroschedasticità, osservazioni indipendenti, m fisso, rango regolare del Jacobiano corretto |
-| `gel_null_grid(d,grid)` | criterio GEL del null, senza sottrarre il minimo | p=1, nessun nuisance, chi-quadro con m gradi di libertà |
-| `gel_rf_test(r,beta,draws)` | AR, K e CLR canonici per una endogena | ramo omoschedastico; covarianza reduced-form stimata, CLR asintotico |
-| `gel_ar_set(r,alpha)` | inversione AR F mediante disequazione quadratica | code infinite determinate analiticamente, errori gaussiani omoschedastici |
-| `gel_rf_grid(r,grid,draws)` | inversione numerica K/CLR e AR | bordi della griglia non certificano code infinite |
-| `weakiv` negli script | benchmark e inferenza scalare robusta con controlli | implementazione esterna, opzioni da mantenere coerenti |
+| `gel_full_tests(d,theta0)` | GMM-type AR/S and K on the full structural vector | heteroskedasticity, independent observations, fixed m, regular rank of the corrected Jacobian, row-level data only |
+| `gel_null_grid(d,grid)` | GEL criterion at the null, without subtracting its minimum | p=1, no nuisance parameters, chi-squared with m degrees of freedom |
+| `gel_rf_test(r,beta,draws)` | canonical AR, K and CLR for one endogenous regressor | homoskedastic branch, estimated reduced-form covariance, asymptotic CLR |
+| `gel_ar_set(r,alpha)` | AR F inversion through a quadratic inequality | infinite tails determined analytically, homoskedastic Gaussian errors |
+| `gel_rf_grid(r,grid,draws)` | numerical inversion of K, CLR and AR | grid edges certify no infinite tail |
+| `weakiv` in the scripts | benchmark and robust scalar inference with controls | external implementation, options to be kept consistent |
 
-Non viene inventato un CLR universale sostituendo ET o EL al criterio CUE.
-Non è implementato un CLR eteroschedastico autonomo o cluster-robust in Mata.
-Non è implementata l'inversione GEL profilata sui numerosi coefficienti dei
-controlli. Per Card/AK l'inferenza robusta scalare con controlli è affidata al
-benchmark `weakiv, robust` dopo una stima IV robusta. Il ramo autonomo canonical
-serve per il confronto omoschedastico e per la simulazione calibrata gaussiana.
+The CUE-based CLR is never transferred to ET or EL by substituting their
+criteria. A self-contained heteroskedastic or cluster-robust CLR is absent from
+the Mata code, and so is profiled GEL inversion over the many coefficients of
+the controls. For Card and Angrist and Krueger, robust scalar inference with
+controls is delegated to `weakiv, robust` after a robust IV estimate, and the
+canonical branch serves the homoskedastic comparison and the calibrated Gaussian
+simulation.
 
-Un fallimento del duale è un esito numerico non risolto, non un rifiuto statistico
-automatico. Il codice richiede radici accurate ma non contiene un certificatore
-LP dell'appartenenza all'interno dell'inviluppo convesso.
+A failure of the dual is an unresolved numerical outcome and carries no
+automatic statistical meaning. The code requires accurate roots and contains no
+linear-programming certificate of membership in the interior of the convex hull.
 
-## Scelte empiriche
+## Empirical choices
 
-Il confronto principale usa lo stesso campione e gli stessi controlli, inclusi
-anno e Stato di nascita, con 3, 30 e 180 strumenti esclusi. Sono rispettivamente
-3 trimestri, 30 interazioni trimestre–anno, e queste ultime più 150 interazioni
-trimestre–Stato. Quarto trimestre e Michigan fungono da categorie base.
-Con 59 controlli e intercetta, i momenti totali sono 63, 90 e 240.
+The main comparison uses the same sample and the same controls, including year
+and state of birth, with 3, 30 and 180 excluded instruments. These are the three
+quarter dummies, their 30 interactions with year, and the latter together with
+150 interactions between quarter and state. The fourth quarter and Michigan are
+the base categories. With 59 controls and the intercept, the total number of
+moments is 63, 90 and 240.
 
-Questa è un'estensione controllata del disegno classico. Non è una replica
-letterale della Table V, né una riproduzione numerica dei risultati di Bound,
-Jaeger e Baker. Aggiungere gli strumenti può cambiare anche la ponderazione
-dell'effetto dell'istruzione se gli effetti sono eterogenei. La distanza tra
-stime reali non identifica da sola il bias.
+The design is a controlled extension of the classical one and differs both from
+a literal replication of Table V and from a numerical reproduction of the
+results of Bound, Jaeger and Baker. Adding instruments may also change the
+weighting of the return to education when effects are heterogeneous, so the
+distance between estimates on real data identifies no bias by itself.
 
-La simulazione fissa il disegno degli strumenti, calibra una direzione del primo
-stadio e la covarianza degli errori sui dati, poi impone un coefficiente vero
-esplicito e una concentrazione totale 10, 30 o 100. La stessa replica è usata
-per tutte le specificazioni. Riporta bias, RMSE, errore mediano, copertura Wald,
-copertura AR/K/CLR e fallimenti. Bias e RMSE sono condizionati al successo,
-mentre la copertura include anche limiti inferiori e superiori che trattano i fallimenti.
-La copertura dei test robusti è una proprietà della procedura di test del modello,
-non sei diverse proprietà degli stimatori puntuali.
+The simulation keeps the instrument design fixed, calibrates a first-stage
+direction and the error covariance on the data, and then imposes an explicit
+true coefficient and a total concentration of 10, 30 or 100. The same replication
+is used for every specification. It reports bias, RMSE, median error, Wald
+coverage, AR, K and CLR coverage and failures. Bias and RMSE are conditional on
+success, while coverage also reports lower and upper bounds that account for
+failures. The coverage of the robust tests is a property of the test procedure
+for the model as a whole.
 
-Leggere `docs/MATHEMATICS.md` per formule, normalizzazioni e interpretazione.
-Leggere `docs/DATA.md` per fonti e per l'estratto completo.
-`docs/VALIDATION.md` separa le verifiche eseguite da quelle ancora da eseguire
-e riporta l'audit effettivamente eseguito sull'estratto MIT.
+`docs/MATHEMATICS.md` contains formulas, normalizations and interpretation,
+`docs/DATA.md` the sources and the full extract, and `docs/VALIDATION.md` the
+record of the checks already run and of those still pending, together with the
+audit on the MIT extract.

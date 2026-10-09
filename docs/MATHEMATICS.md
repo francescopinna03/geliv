@@ -1,235 +1,305 @@
-# Definizioni e decisioni matematiche
+# Definitions and mathematical decisions
 
-## 1. Criterio e segni
+## 1. Criterion and signs
 
-Il vettore dei coefficienti strutturali, di dimensione p, è indicato con theta.
-Il vettore degli strumenti inclusi ed esclusi, di dimensione m, è z_i.
-Il vettore dei regressori, di dimensione p, è x_i. I momenti sono
+The vector of structural coefficients, of dimension p, is denoted theta. The
+vector of included and excluded instruments for observation i, of dimension m,
+is z_i, and the vector of regressors, of dimension p, is x_i. The moments are
 
     g_i(theta) = z_i (y_i - x_i' theta).
 
-I moltiplicatori, di dimensione m, sono lambda. Con le funzioni concave
-rho_ET(v)=-exp(v), rho_EL(v)=log(1-v), rho_CUE(v)=-(1+v)^2/2,
-il criterio medio normalizzato è
+The multipliers, of dimension m, are lambda. With the concave functions
+rho_ET(v)=-exp(v), rho_EL(v)=log(1-v) and rho_CUE(v)=-(1+v)^2/2, the normalized
+mean criterion is
 
     q_gamma(theta) = sup_lambda mean[rho_gamma(lambda'g_i)-rho_gamma(0)].
 
-Si minimizza q rispetto a theta. EL richiede 1-lambda'g_i>0.
-Il limite gamma=-1 della parametrizzazione Cressie–Read va inteso al netto
-della costante divergente indipendente da parametri e moltiplicatori.
+The criterion q is minimized over theta, and EL requires 1-lambda'g_i>0 for every
+observation. The limit gamma=-1 of the Cressie-Read parametrization is understood
+net of the divergent constant that depends on neither parameters nor multipliers.
 
-Il software minimizza il negativo dell'obiettivo interno concavo. Per ET usa
-la trasformazione logaritmica monotona dell'esponenziale. A theta fissato,
+The software minimizes the negative of the concave inner objective. For ET it
+uses the monotone logarithmic transformation of the exponential. At fixed theta,
 
     L(theta,lambda) = log(mean(exp(lambda'g_i(theta)))),
     q_ET_log(theta) = - min_lambda L(theta,lambda).
 
-Il gradiente interno è la media dei momenti sotto i pesi esponenziali; l'hessiana
-è la loro covarianza pesata. Questo permette Newton stabile con log-sum-exp.
-Il criterio GEL originale è 1-exp(-q_ET_log). È una trasformazione strettamente
-crescente, quindi i minimizzatori coincidono. Si salvano entrambi i criteri.
+The inner gradient is the mean of the moments under the exponential weights and
+the Hessian is their weighted covariance, which allows stable Newton steps with
+the log-sum-exp device. The original GEL criterion equals 1-exp(-q_ET_log), a
+strictly increasing transformation with the same minimizers, and both criteria
+are stored.
 
-Per EL l'obiettivo interno convesso è -mean(log(1-lambda'g_i)); per CUE è
-mean(lambda'g_i + (lambda'g_i)^2/2). Le rispettive hessiane sono positive
-semidefinite. La convessità non garantisce esistenza di un ottimo finito.
+For EL the convex inner objective is -mean(log(1-lambda'g_i)), and for CUE it is
+mean(lambda'g_i + (lambda'g_i)^2/2). Both Hessians are positive semidefinite,
+although convexity alone guarantees no finite optimum.
 
-La media campionaria dei momenti è gbar. La matrice dei momenti secondi non
-centrati è Omega2=mean(g_i g_i'). Se invertibile,
+The sample mean of the moments is gbar, and the matrix of uncentered second
+moments is Omega2=mean(g_i g_i'). When Omega2 is invertible,
 
     lambda_CUE = -solve(Omega2,gbar),
     q_CUE = (gbar' solve(Omega2,gbar))/2.
 
-La covarianza centrata differisce da Omega2 fuori dal null. Non sono
-intercambiabili per una pretesa uguaglianza numerica tra implementazioni.
+The centered covariance differs from Omega2 away from the null, so the two cannot
+be exchanged on the strength of a claimed numerical equality between
+implementations. The CUE estimator itself is the same under either choice,
+because the centered criterion is a strictly increasing function of the
+uncentered one.
 
-## 2. Gradiente esterno
+## 2. Outer gradient
 
-La derivata del residuo rispetto a theta è -x_i. Si definisce lo scalare
-t_i=z_i'lambda. Le tre derivate dei criteri effettivamente minimizzati sono
+The derivative of the residual with respect to theta is -x_i. Define the scalar
+t_i=z_i'lambda. The derivatives of the three criteria actually minimized are
 
     ET log     sum_i pi_i x_i t_i,
     EL         mean_i x_i t_i / (1-u_i t_i),
     CUE        mean_i (1+u_i t_i) x_i t_i.
 
-Il codice ottimizza coefficienti scalati con la norma RMS dei regressori;
-scala anche gli strumenti per le loro norme RMS. Le trasformazioni sono
-invertibili, fisse rispetto a theta e non cambiano gli stimatori. I risultati
-sono restituiti nelle unità originali. Nessuna FWL viene applicata a GEL.
+The code optimizes over coefficients scaled by the root mean square of the
+regressors and scales the instruments by their own root mean squares. These
+transformations are invertible and fixed with respect to theta, so they leave
+every estimator unchanged, and results are returned in the original units. No
+Frisch-Waugh-Lovell partialling is applied to GEL.
 
-La regolarizzazione di Newton, se necessaria per un passo, riguarda solo
-l'hessiana usata per proporre una direzione. Non si aggiunge una penalità al
-criterio e non si altera il sistema dei momenti. La convergenza richiede
-comunque il gradiente del problema non penalizzato. I sistemi singolari
-nel CUE chiuso o nella covarianza non vengono risolti con una pseudoinversa
-silenziosa. Newton EL controlla anche il momento normalizzato, per evitare
-una falsa convergenza quando tutti i pesi non normalizzati tendono a zero.
+Newton regularization, when a step requires it, affects only the Hessian used to
+propose a direction. The criterion receives no penalty and the moment system is
+left intact, and convergence is always assessed on the gradient of the
+unpenalized problem. Singular systems in the closed-form CUE or in the
+covariance are never resolved through a silent pseudoinverse. Newton for EL also
+monitors the normalized moment, which prevents false convergence when all the
+unnormalized weights tend to zero.
 
-## 3. Probabilità e divergenze
+## 3. Probabilities and divergences
 
-La distribuzione empirica uniforme assegna 1/n a ogni osservazione. I pesi sono
+The uniform empirical distribution assigns 1/n to each observation. The implied
+weights are
 
     ET      pi_i = exp(v_i) / sum_j exp(v_j),
     EL      pi_i = [1/(1-v_i)] / sum_j [1/(1-v_j)],
     CUE     pi_i = (1+v_i) / sum_j (1+v_j).
 
-Per ET ed EL, sotto fattibilità interna, sono probabilità. CUE non impone
-1+v_i>=0. Può produrre pesi firmati. Non ha allora un'interpretazione come
-distribuzione, né un'effettiva numerosità probabilistica dei pesi.
+For ET and EL, under interior feasibility, these are probabilities. CUE imposes
+no condition 1+v_i>=0 and may therefore produce signed weights, which then admit
+neither an interpretation as a distribution nor an effective sample size.
 
-ET minimizza KL(pi||uniforme), EL minimizza KL(uniforme||pi), soggetti a
-somma dei pesi uguale a uno e momenti pesati nulli. Il duale ET senza un
-moltiplicatore esplicito per la normalizzazione produce la stessa soluzione
-tramite la trasformazione logaritmica sopra. Al suo ottimo interno
+ET minimizes KL(pi||uniform) and EL minimizes KL(uniform||pi), subject to weights
+summing to one and to weighted moments equal to zero. The ET dual without an
+explicit multiplier for the normalization yields the same solution through the
+logarithmic transformation above. At its inner optimum
 
-    KL(pi_ET||uniforme) = -log(mean(exp(v_i))).
+    KL(pi_ET||uniform) = -log(mean(exp(v_i))).
 
-Per EL, all'ottimo interno, la somma dei pesi non normalizzati è n, e
+For EL, at the inner optimum, the unnormalized weights sum to n, and
 
-    KL(uniforme||pi_EL) = mean(log(1-v_i)).
+    KL(uniform||pi_EL) = mean(log(1-v_i)).
 
-Il caso quadratico del GEL è equivalente al CUE con momenti secondi non
-centrati. Un primale quadratico con vincolo di positività esplicito è diverso
-quando il CUE non vincolato produce pesi negativi.
+The quadratic case of GEL is equivalent to the CUE with uncentered second
+moments. A quadratic primal with an explicit positivity constraint differs from
+it whenever the unconstrained CUE produces negative weights.
 
-## 4. Identità pitagorica, con il suo dominio corretto
+## 4. Pythagorean identity and its domain
 
-Fissare theta. Il politopo delle probabilità che soddisfano quei momenti è
-una famiglia affine intersecata con il simplesso. Sia pi* la proiezione ET
-dell'uniforme, interna al simplesso. Per ogni altra distribuzione fattibile r,
+Fix theta. The set of probability vectors that satisfy the moments at that theta
+is an affine family intersected with the simplex. Let pi* be the ET projection of
+the uniform distribution, assumed interior to the simplex. For every other
+feasible distribution r,
 
-    KL(r||uniforme) = KL(r||pi*) + KL(pi*||uniforme).
+    KL(r||uniform) = KL(r||pi*) + KL(pi*||uniform).
 
-Infatti log(pi*_i/(1/n))=lambda'g_i-log(mean exp(lambda'g_i)). La media del
-primo termine sotto r è zero, come sotto pi*. L'identità segue sottraendo
-le due divergenze. Non confronta automaticamente proiezioni calcolate a theta
-diversi. La successiva minimizzazione in theta attraversa famiglie affini
-diverse, la cui unione può non essere convessa.
+The identity follows from log(pi*_i/(1/n))=lambda'g_i-log(mean exp(lambda'g_i)),
+whose first term has mean zero under r as under pi*, by subtracting the two
+divergences. It compares no projections computed at different values of theta.
+The subsequent minimization over theta moves across different affine families,
+whose union need not be convex.
 
-In presenza di momenti annidati e a theta fissato si può costruire una
-decomposizione informativa aggiungendo gruppi di vincoli. Con stime theta
-diverse, chiamare tale differenza una decomposizione pitagorica esatta sarebbe
-sbagliato. Analogamente, pesi estremi segnalano osservazioni necessarie alla
-riconciliazione dei momenti, non invalidità individuale dello strumento.
+With nested moments and at fixed theta, adding groups of constraints yields an
+informational decomposition. Once the estimates of theta differ, calling such a
+difference an exact Pythagorean decomposition would be incorrect. Likewise,
+extreme weights flag the observations that the reconciliation of the moments
+relies on, and they say nothing by themselves about the validity of an
+individual instrument.
 
-## 5. Covarianza convenzionale e sovraidentificazione
+## 5. Conventional covariance and overidentification
 
-Il Jacobiano medio, una matrice m per p, è D=-mean(z_i x_i'). Sotto
-identificazione forte e corretta specificazione,
+The mean Jacobian, an m by p matrix, is D=-mean(z_i x_i'). Under strong
+identification and correct specification,
 
     V(theta_hat) = inverse(D' inverse(Omega2) D) / n.
 
-È la covarianza efficiente di primo ordine condivisa dai tre stimatori.
-Non incorpora correzioni higher-order né robustezza alla misspecificazione.
-Sotto strumenti deboli i normali intervalli Wald possono avere copertura
-errata anche quando questa matrice è invertibile.
+This is the first-order efficient covariance shared by the three estimators. It
+includes neither higher-order corrections nor robustness to misspecification,
+and under weak instruments the usual Wald intervals may have incorrect coverage
+even when the matrix is invertible.
 
-Al parametro stimato e sotto regolarità con m fisso, il criterio GEL
-moltiplicato per 2n ha riferimento chi-quadro(m-p). Per ET si restituisce
-sia 2n*(1-exp(-KL)) sia 2n*KL. Sono asintoticamente equivalenti sotto il null,
-non numericamente identici in un campione finito. Un test di distanza piccolo
-non prova la validità economica degli strumenti.
+At the estimated parameter and under regularity with fixed m, the GEL criterion
+multiplied by 2n has a chi-squared(m-p) reference. For ET the package returns
+both 2n*(1-exp(-KL)) and 2n*KL, which are asymptotically equivalent under the
+null and numerically distinct in finite samples. A small distance statistic is
+no proof of the economic validity of the instruments.
 
-## 6. Null strutturale e strumenti deboli
+## 6. Structural null and weak instruments
 
-Per il null sull'intero vettore theta0 si valuta un sistema di m restrizioni
-sulla media dei momenti. Il riferimento della statistica di tipo AR/S è
-chi-quadro(m), senza richiedere identificazione forte di theta. Si mantiene
-fisso m nell'approssimazione, con varianza dei momenti non degenere e CLT.
-Si può usare il criterio GEL al null, senza sottrarre il suo minimo su theta.
-Il rapporto profilato che sottrae il minimo non diventa automaticamente
-chi-quadro(p) sotto strumenti deboli.
+For a null on the full vector theta0, a system of m restrictions on the mean of
+the moments is evaluated. The reference for the AR/S-type statistic is
+chi-squared(m), which requires no strong identification of theta, with m held
+fixed in the approximation, a nondegenerate variance of the moments and a
+central limit theorem. The GEL criterion at the null, without subtracting its
+minimum over theta, can be used for this purpose. The profiled ratio that
+subtracts the minimum does not become chi-squared(p) under weak instruments.
 
-Per la statistica K robusta del modulo si indica con Omega la covarianza
-centrata dei momenti al null. Per ogni coefficiente j, la covarianza tra
-la colonna j del Jacobiano individuale e i momenti è una matrice m per m,
-indicata con C_j. Il Jacobiano corretto ha colonne
+For the robust K statistic of the module, Omega denotes the centered covariance
+of the moments at the null. For each coefficient j, the covariance between
+column j of the individual Jacobian and the moments is an m by m matrix denoted
+C_j. The corrected Jacobian has columns
 
     Dtilde_j = D_j - C_j inverse(Omega) gbar.
 
-Si calcolano
+The two statistics are
 
     AR = n*gbar' inverse(Omega) gbar,
     K = n*gbar' inverse(Omega) Dtilde
           inverse(Dtilde' inverse(Omega) Dtilde)
           Dtilde' inverse(Omega) gbar.
 
-Il riferimento K è chi-quadro(p), sotto le condizioni di rango e limite
-congiunto appropriate. Non è il quadrato del semplice gradiente GEL con
-l'hessiana osservata invertita. La correzione di covarianza è essenziale.
-La funzione rifiuta la singolarità della matrice proiettata. Questi sono test
-dell'intero vettore: inserire stime dei nuisance non conserva automaticamente
-la giustificazione appena data.
+The reference for K is chi-squared(p), under the appropriate rank conditions and
+joint limit. The covariance correction distinguishes K from the square of the
+plain GEL gradient weighted by the inverse observed Hessian, and it is essential.
+The function rejects a singular projected matrix. Both are tests on the full
+vector, and plugging in estimates of nuisance parameters does not automatically
+preserve the justification just given.
 
-## 7. Ramo canonico AR, K e CLR con una endogena
+## 7. Canonical AR, K and CLR with one endogenous regressor
 
-Per questo ramo soltanto si proiettano outcome, endogena e strumenti esclusi
-fuori dai controlli esogeni W. Sia Y la matrice dei due outcome ridotti,
-nell'ordine y e x. Sia Z la matrice degli strumenti esclusi residualizzati.
-Le due matrici due per due di prodotti quadratici sono
+For this branch only, the outcome, the endogenous regressor and the excluded
+instruments are projected off the exogenous controls W. Let Y be the matrix of
+the two residualized outcomes, in the order y and x, and Z the matrix of
+residualized excluded instruments. The two 2 by 2 matrices of quadratic
+products are
 
     R = Y' Z inverse(Z'Z) Z' Y,
     E = Y'Y - R.
 
-Il numero di strumenti esclusi è k, quello dei controlli inclusa l'intercetta
-è l. Il modulo usa Sigma=E/(n-l-k). Al null beta, i vettori due per uno sono
-b=(1,-beta)' e a=(beta,1)'. Le statistiche sufficienti scalari sono
+The number of excluded instruments is k and the number of controls including
+the intercept is l. The module uses Sigma=E/(n-l-k). At the null beta, the 2 by 1
+vectors are b=(1,-beta)' and a=(beta,1)', and the scalar sufficient statistics
+are
 
     SS = b' R b / (b' Sigma b),
     TT = a' inverse(Sigma) R inverse(Sigma) a / (a' inverse(Sigma) a),
     ST = b' R inverse(Sigma) a / sqrt((b' Sigma b)*(a' inverse(Sigma) a)).
 
-K=ST²/TT. Il criterio LR condizionale è
+K equals ST²/TT, and the conditional likelihood ratio statistic is
 
     CLR = (SS-TT + sqrt((SS-TT)²+4*ST²))/2.
 
-La distribuzione condizionale è simulata tenendo TT fisso. Si estraggono due
-variabili indipendenti U1~chi-quadro(1) e U2~chi-quadro(k-1), si sostituiscono
-SS=U1+U2 e ST²=TT*U1. Il p-value registra anche l'errore Monte Carlo. Una stessa
-matrice di estrazioni viene riutilizzata per tutta la griglia. Con covarianza
-nota e normalità la costruzione canonica è esatta. Sostituendo la covarianza
-con quella stimata dal reduced form, il CLR implementato è asintotico.
+Its conditional distribution is simulated holding TT fixed. Two independent
+variables U1, distributed chi-squared(1), and U2, distributed chi-squared(k-1),
+are drawn and substituted as SS=U1+U2 and ST²=TT*U1. The p-value is reported
+together with its Monte Carlo error, and a single matrix of draws is reused across
+the whole grid. With known covariance and normality the canonical construction
+is exact, and once the covariance is replaced by its reduced-form estimate the
+implemented CLR is asymptotic.
 
-Il test classico AR usa SS/k e il riferimento F(k,n-l-k), esatto sotto errori
-gaussiani omoschedastici. La sua inversione equivale a
+The `weakiv` command reports AR and K in Lagrange multiplier form, with the
+residual variance taken from the projection on the controls alone. The two forms
+are linked by AR_LM = AR/(1 + AR/n), and the same relation holds for K, which is
+how the benchmark in `11_weakiv_benchmark.do` converts the statistics of the
+module before comparing them.
+
+The classical AR test uses SS/k with the F(k,n-l-k) reference, exact under
+homoskedastic Gaussian errors. Its inversion is equivalent to
 
     (1,-beta) [R - k*Fcrit*E/(n-l-k)] (1,-beta)' <= 0.
 
-Il codice risolve la disequazione quadratica. Distingue insieme vuoto,
-intervallo limitato, semiretta, due semirette e intera retta. Questo consente
-di certificare code infinite senza scambiare il bordo di una griglia per
-infinito. K e CLR rimangono griglie finite; la loro topologia tra nodi o fuori
-dal dominio non è certificata. Un insieme AR vuoto può indicare incompatibilità
-dei momenti, non una identificazione estremamente precisa.
+The code solves this quadratic inequality and distinguishes the empty set, a
+bounded interval, a half-line, the union of two half-lines and the whole line,
+so that infinite tails are certified without mistaking the edge of a grid for
+infinity. K and CLR remain finite grids, and their topology between nodes or
+outside the domain is not certified. An empty AR set signals that the moments
+may be incompatible, and it should never be read as extremely precise
+identification.
 
-## 8. Cosa afferma davvero Newey–Smith
+## 8. Scope of the Newey and Smith results
 
-Newey e Smith (2004) eliminano per la famiglia GEL una componente del bias
-asintotico dovuta alla correlazione fra momenti e Jacobiano. EL elimina anche
-una componente collegata alla stima della matrice dei pesi. Questo non dice
-che ogni bias di ET, EL e CUE sia indipendente dal numero di momenti, né fornisce
-una garanzia uniforme nell'asintotica weak-IV o many-IV. Il progetto deve
-misurare prestazioni e fallimenti, non assumere la vittoria di GEL.
+Newey and Smith (2004) show that the GEL family removes a component of the
+asymptotic bias due to the correlation between moments and Jacobian, and that EL
+also removes a component linked to the estimation of the weighting matrix. Their
+results establish neither that every bias of ET, EL and CUE is independent of the
+number of moments nor any uniform guarantee under weak-instrument or
+many-instrument asymptotics. The project therefore measures performance and
+failures directly and makes no prior assumption about the ranking of the
+estimators.
 
-La simulazione è un esperimento sulle prestazioni finite, ispirato da queste
-espansioni. Non è una verifica del teorema in un regime diverso dalle sue
-ipotesi. Vanno distinti m fisso, m crescente, forza complessiva costante e
-forza per strumento costante. Il programma implementa la concentrazione
-complessiva fissata nel modello più ampio; la concentrazione proiettata sui
-sottoinsiemi degli strumenti può essere inferiore.
+The simulation is an experiment on finite-sample performance inspired by these
+expansions, and it tests no theorem outside its assumptions. Fixed m, growing m,
+constant overall strength and constant strength per instrument are distinct
+regimes. The program fixes the overall concentration in the largest model, so
+the concentration projected on the subsets of instruments may be lower.
 
-## Fonti primarie
+## 9. Aggregation by cells
 
-- Newey e Smith (2004), Econometrica 72, 219–255.
-  https://doi.org/10.1111/j.1468-0262.2004.00482.x
-- Kleibergen (2005), Econometrica 73, 1103–1123.
-  https://doi.org/10.1111/j.1468-0262.2005.00610.x
-- Moreira (2003), A Conditional Likelihood Ratio Test for Structural Models.
-  https://doi.org/10.1111/1468-0262.00438
-- Kitamura e Stutzer (1997), Econometrica 65, 861–874.
-  An Information-Theoretic Alternative to Generalized Method of Moments Estimation.
-- Finlay, Magnusson e Schaffer, codice e documentazione di weakiv.
-  https://github.com/kfinlay/weakiv
-- StataCorp, manuale Mata optimize().
-  https://www.stata.com/manuals/m-5optimize.pdf
-- Archivio originale Angrist.
-  https://economics.mit.edu/people/faculty/josh-angrist/angrist-data-archive
+Suppose the observations are partitioned into C cells and that the instruments
+and the exogenous regressors take a single value within each cell, while the
+outcome and the endogenous regressors vary across individuals. Denote by c(i)
+the cell of observation i, by n_c the number of observations in cell c, by z_c
+the vector of instruments of cell c, of dimension m, and by w_c the vector of
+exogenous regressors of cell c, of dimension p-e, where e is the number of
+endogenous regressors. The regressor vector splits as x_i=(x_i^E, w_c(i)), with
+x_i^E of dimension e. The residual and the scalar argument of rho become
+
+    u_i = y_i - x_i^E' theta_E - w_c(i)' theta_W,
+    t_c = z_c' lambda,
+    v_i = u_i t_c(i).
+
+Every sum over observations that multiplies a cell-level matrix can be computed
+by first summing scalar or e-dimensional quantities within cells. With
+psi_i the derivative weight of the method at observation i, namely exp(v_i-shift)
+for ET, 1/(1-v_i) for EL and 1+v_i for CUE, and with omega_i the corresponding
+Hessian weight, exp(v_i-shift) for ET, 1/(1-v_i)^2 for EL and 1 for CUE, the
+inner gradient and Hessian are
+
+    sum_i psi_i u_i z_c(i)          = sum_c z_c a_c,         a_c = sum_{i in c} psi_i u_i,
+    sum_i omega_i u_i^2 z_c(i) z_c(i)' = sum_c z_c z_c' h_c,  h_c = sum_{i in c} omega_i u_i^2,
+
+up to the normalizations of Section 1. Denote by kappa_i the scalar factor that
+multiplies x_i t_i in the expression of Section 2 for the method in use. The
+outer gradient then splits into a part for the endogenous regressors,
+sum_i kappa_i t_c(i) x_i^E, which remains an individual sum of dimension e, and a
+part for the exogenous regressors, sum_c w_c t_c (sum_{i in c} kappa_i).
+The Jacobian, the matrix Omega2, the 2SLS and OLS starting values and the
+weighted moments decompose in the same way.
+
+The cost of one evaluation thus falls from the order of n m² to the order of
+n + C m², and no n by m matrix is ever formed. Every quantity is algebraically
+identical to its row-level counterpart, so estimators, covariances and implied
+weights are unchanged and only the order of summation differs. The engine sorts
+the observations by cell in Mata through `order()`, `panelsetup()` and
+`panelsum()`, checks the constancy of instruments and exogenous regressors
+within each cell exactly, and returns the implied weights in the original order
+of the observations. In the Angrist and Krueger design the cells are defined by
+year, quarter and state of birth, with at most 2040 of them for 329509
+observations.
+
+## Primary sources
+
+[1] Newey, W. K. and Smith, R. J. (2004), Higher order properties of GMM and
+generalized empirical likelihood estimators, *Econometrica* 72, 219-255.
+https://doi.org/10.1111/j.1468-0262.2004.00482.x
+
+[2] Kleibergen, F. (2005), Testing parameters in GMM without assuming that they
+are identified, *Econometrica* 73, 1103-1123.
+https://doi.org/10.1111/j.1468-0262.2005.00610.x
+
+[3] Moreira, M. J. (2003), A conditional likelihood ratio test for structural
+models, *Econometrica* 71, 1027-1048. https://doi.org/10.1111/1468-0262.00438
+
+[4] Kitamura, Y. and Stutzer, M. (1997), An information-theoretic alternative to
+generalized method of moments estimation, *Econometrica* 65, 861-874.
+
+[5] Finlay, K., Magnusson, L. M. and Schaffer, M. E., code and documentation of
+`weakiv`. https://github.com/kfinlay/weakiv
+
+[6] StataCorp, Mata reference manual, `optimize()` and `panelsetup()`.
+https://www.stata.com/manuals/m-5optimize.pdf
+
+[7] Angrist, J. D., data archive. https://economics.mit.edu/people/faculty/josh-angrist/angrist-data-archive

@@ -1,83 +1,95 @@
-# Stato della validazione
+# Validation record
 
-Verifiche in Python del 7 ottobre 2026, verifiche in Stata dell'8 e 9 ottobre 2026.
+Checks in Python on 7 and 9 October 2026, checks in Stata on 8 and 9 October 2026.
 
-## Eseguito in Python
+## Run in Python
 
-`python/verify_math.py` supera 35 controlli matematici e numerici, più 3009
-confronti puntuali fra inversione analitica AR e test F. I controlli includono
-gradienti e hessiane interni, gradienti dell'inviluppo, primali indipendenti
-risolti con SLSQP, momenti pesati, CUE Newton contro forma chiusa, invarianza
-rispetto a trasformazioni invertibili degli strumenti, uguaglianza in esatta
-identificazione, identità pitagorica ET e accumulazione a blocchi. La simulazione
-controlla inoltre il livello di K a concentrazione nulla e del CLR condizionale
-a quattro valori di TT. Soglie ed errori sono nel JSON incluso.
+`python/verify_math.py` passes 35 mathematical and numerical checks, plus 3009
+pointwise comparisons between the analytic AR inversion and the F test. The
+checks cover inner gradients and Hessians, envelope gradients, independent
+primal problems solved with SLSQP, weighted moments, CUE Newton against the
+closed form, invariance to invertible transformations of the instruments,
+equality under exact identification, the ET Pythagorean identity and block
+accumulation. The simulation also checks the size of K at zero concentration
+and of the conditional CLR at four values of TT. Thresholds and errors are in
+`output/math_validation.json`.
 
-`python/audit_ak_design.py` è stato eseguito sull'estratto minimo originale MIT.
-Il checksum dell'archivio scaricato è
+`python/audit_ak_design.py` was run on the original minimal MIT extract. The
+checksum of the downloaded archive is
 
     0b6c505e52fd6c9f6194c356c91688acf2f8937b5023a84e754e942c9a2f2dcc
 
-Le osservazioni sono 329509 prima e dopo i filtri dichiarati. Il campione è
-comune alle tre specificazioni. I controlli sono 59 più intercetta.
+The sample has 329509 observations before and after the declared filters, it is
+common to the three specifications, and the controls are 59 plus the intercept.
 
-| Strumenti esclusi | Momenti totali | Rango strumentale | Coefficiente 2SLS istruzione | F omoschedastico primo stadio |
+| Excluded instruments | Total moments | Instrument rank | 2SLS education coefficient | Homoskedastic first-stage F |
 |---:|---:|---:|---:|---:|
 | 3 | 63 | 63 | 0.107693705 | 36.036354 |
 | 30 | 90 | 90 | 0.086930200 | 5.363572 |
 | 180 | 240 | 240 | 0.092818056 | 2.582341 |
 
-Il coefficiente OLS con gli stessi controlli è 0.067338971. Queste sono stime
-Python da prodotti incrociati sparsi, non output di Stata, Mata o GEL.
-La traiettoria 2SLS non è monotona. Il dato serve anche a respingere una
-narrativa empirica prestabilita. Non misura il bias senza conoscere il vero
-coefficiente strutturale.
+The OLS coefficient with the same controls is 0.067338971. These figures are
+Python estimates from sparse cross products, produced before any Stata, Mata or
+GEL run. The 2SLS trajectory is not monotone, which already rules out a
+predetermined empirical narrative, and the distance from OLS measures no bias
+without knowledge of the true structural coefficient.
 
-## Eseguito in Stata
+`python/verify_cells.py`, run on 9 October 2026, implements the row-level and
+cell-level computations independently on 1200 simulated observations grouped in
+60 cells in shuffled order. Scaling vectors, 2SLS and OLS starting values, the
+dual value, gradient and Hessian, the envelope gradient for ET, EL and CUE, the
+covariance and the reordering of implied weights agree within 1.5e-14, against a
+tolerance of 1e-10. The report is `output/cells_validation.json`.
 
-L'8 ottobre 2026, su Stata/BE 19.0 per macOS, i due moduli Mata e il comando
-`geliv` sono stati compilati senza errori. Il self-test sintetico di
-`01_selftest.do`, su 800 osservazioni con due strumenti esclusi, supera tutti i
-controlli, tra cui il confronto fra Newton e forma chiusa del CUE, la verifica
-alle differenze finite dei gradienti esterni di ET, EL e CUE, l'invarianza
-rispetto alla dimensione del blocco, la coincidenza con il 2SLS nel caso
-esattamente identificato e la concordanza fra inversione analitica dell'AR e
-griglia su 400 punti. Lo stesso file confronta il CUE sovraidentificato con
-`ivreg2, cue robust`, e i due coefficienti differiscono di 1.1e-10.
+## Run in Stata
 
-Su Card (1995), con 3010 osservazioni, `10_card.do` riproduce il coefficiente
-2SLS 0.131504 e verifica che ET, EL e CUE coincidano con esso nel caso
-esattamente identificato, con pesi impliciti uniformi. Con `nearc4` e `nearc2`
-come strumenti esclusi il CUE di `geliv` e quello di `ivreg2` coincidono su tutti
-i 17 coefficienti entro 1e-6, con il coefficiente dell'istruzione pari a
-0.1623756, mentre ET ed EL convergono a 0.1622988 e 0.1622307 con errore sui
-momenti inferiore a 1e-15 e nessun peso negativo.
+On 8 October 2026, on Stata/BE 19.0 for macOS, the two Mata modules and the
+`geliv` command of version 0.1.3 compiled without errors. The synthetic
+self-test of `01_selftest.do`, on 800 observations with two excluded
+instruments, passes every check, including the comparison between Newton and
+the closed form of the CUE, the finite-difference check of the outer gradients
+of ET, EL and CUE, invariance to the block size, coincidence with 2SLS under
+exact identification and agreement between the analytic AR inversion and a grid
+of 400 points. The same file compares the overidentified CUE with
+`ivreg2, cue robust`, and the two coefficients differ by 1.1e-10.
 
-`11_weakiv_benchmark.do` confronta le statistiche canoniche omoschedastiche al
-valore nullo 0.1 con quelle di `weakiv`. Il modulo calcola AR e K con la varianza
-del residuo della forma ridotta completa, mentre `weakiv` adotta la forma del
-moltiplicatore di Lagrange, costruita sul residuo dei soli controlli, e le due
-versioni sono legate dall'identità AR_LM = AR/(1 + AR/n), che vale allo stesso
-modo per K. Dopo la conversione AR, K e la statistica CLR coincidono con `weakiv`
-alla settima cifra significativa, con valori 2.8329641, 1.4888246 e 1.6032545,
-e il p-value del CLR differisce di 0.002, entro la tolleranza Monte Carlo della
-simulazione condizionale.
+On Card (1995), with 3010 observations, `10_card.do` reproduces the 2SLS
+coefficient 0.131504 and verifies that ET, EL and CUE coincide with it under
+exact identification, with uniform implied weights. With `nearc4` and `nearc2`
+as excluded instruments, the CUE of `geliv` and that of `ivreg2` agree on all 17
+coefficients within 1e-6, with an education coefficient of 0.1623756, while ET
+and EL converge to 0.1622988 and 0.1622307 with moment errors below 1e-15 and
+no negative weight.
 
-Su Angrist e Krueger (1991), `20_ak_prepare.do` ricostruisce in Stata lo stesso
-campione dell'audit Python, con 329509 osservazioni e insiemi di 3, 30 e 180
-strumenti esclusi. Con 3 strumenti esclusi il CUE di `geliv` stima il
-coefficiente dell'istruzione a 0.108965 e l'ET a 0.1089056, entrambi convergenti,
-con statistica J pari a 3.10 su 2 gradi di libertà e pesi impliciti compresi fra
-0.96 e 1.07 volte 1/n. La stima CUE ha richiesto 362 secondi su Stata/BE.
+`11_weakiv_benchmark.do` compares the canonical homoskedastic statistics at the
+null value 0.1 with those of `weakiv`. The module computes AR and K with the
+residual variance of the full reduced form, whereas `weakiv` uses the Lagrange
+multiplier form built on the residual from the controls alone, and the two
+versions are linked by the identity AR_LM = AR/(1 + AR/n), which holds in the
+same way for K. After the conversion, AR, K and the CLR statistic agree with
+`weakiv` to the seventh significant digit, with values 2.8329641, 1.4888246 and
+1.6032545, and the CLR p-value differs by 0.002, within the Monte Carlo
+tolerance of the conditional simulation.
 
-## Non ancora eseguito
+On Angrist and Krueger (1991), `20_ak_prepare.do` rebuilds in Stata the same
+sample as the Python audit, with 329509 observations and sets of 3, 30 and 180
+excluded instruments. With 3 excluded instruments the row-level CUE of `geliv`
+estimates the education coefficient at 0.108965 and ET at 0.1089056, both
+converged, with a J statistic of 3.10 on 2 degrees of freedom and implied
+weights between 0.96 and 1.07 times 1/n. The CUE estimate took 362 seconds on
+Stata/BE.
 
-Restano da eseguire le stime ET, EL e CUE con 30 e 180 strumenti esclusi, il
-confronto sul campione completo previsto da `22_ak_weakiv.do`, l'analisi dei pesi
-impliciti di `40_geometry.do` e la simulazione calibrata di `30_mc.do`. Al costo
-osservato, le specificazioni con 180 strumenti richiedono molte ore per stimatore,
-e per ridurre quel costo è prevista una variante del motore che aggrega i
-prodotti esterni per cella di anno, trimestre e Stato di nascita, lasciando
-invariati gli stimatori. I gate superati certificano il motore sui casi descritti
-e non si estendono da soli ai risultati su Angrist e Krueger, che vanno letti solo
-dopo l'esecuzione dei controlli previsti da ciascuno script.
+## Pending
+
+The cell-level engine of version 0.2.0 has not yet been compiled in Stata. Its
+acceptance requires the second block of `01_selftest.do`, which compares the two
+engines on shuffled cell data for ET, EL and CUE, the unchanged Card gates, and
+the reproduction of the row-level estimates on Angrist and Krueger with 3
+excluded instruments, 0.108965 for CUE and 0.1089056 for ET, through
+`cells(gel_cell)`.
+
+The estimates with 30 and 180 excluded instruments, the full-sample comparison
+in `22_ak_weakiv.do`, the analysis of implied weights in `40_geometry.do` and
+the calibrated simulation in `30_mc.do` remain to be run. The gates already
+passed certify the engine on the cases described above and extend to the
+Angrist and Krueger results only once each script has run its own checks.
