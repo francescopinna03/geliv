@@ -1,8 +1,11 @@
 # Data and comparability
 
-No dataset is shipped with the package. The downloader is explicit and writes a
-local manifest with the URL, the date of the check, the size and the SHA-256
-hash of each source file.
+No dataset is shipped with the package. The downloader is explicit. For the
+Angrist and Krueger extract it compares the size and the SHA-256 hash of the
+archive with the tracked record `data/asciiqob.zip.source.json` and stops on any
+difference. For every source it writes the URL, the size, the hash and the date
+of the check to an untracked local file ending in `.check.json`, so that a
+download never alters a tracked file.
 
 ## Card
 
@@ -77,4 +80,8 @@ took 362 seconds on the full Angrist and Krueger sample.
 The cell-level engine selected by `cells()` stores the instruments and the
 controls once per cell, so memory is dominated by the outcome, the endogenous
 regressors and a few vectors of length n. Its cost per evaluation is of the
-order of n + C m², with C the number of cells, about 2040 in this design.
+order of n + C m², with C the number of cells, about 2040 in this design. With 3
+excluded instruments the same CUE estimate took 52 seconds and ET took 80
+seconds. At 63 moments the cell products are already negligible and the
+individual passes over the 329509 observations dominate, so the gain relative to
+the row-level engine grows with the number of moments.

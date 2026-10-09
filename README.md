@@ -1,6 +1,6 @@
 # GELIV, a Mata laboratory for weak instruments
 
-Version 0.2.0, 9 October 2026. Research code for Stata 16 or later.
+Version 0.2.1, 9 October 2026. Research code for Stata 16 or later.
 
 GELIV implements exponential tilting (ET), empirical likelihood (EL) and the
 continuously updated estimator (CUE) from first principles in Mata for the
@@ -23,12 +23,13 @@ in `output/math_validation.json`. Since 8 October 2026 the row-level engine and
 the `geliv` command have been compiled and run in Stata/BE 19.0, where they pass
 the synthetic self-test, the comparison of the overidentified CUE with `ivreg2`
 and the acceptance gates on Card, all documented in `docs/VALIDATION.md`. The
-cell-level engine introduced in version 0.2.0 has been verified against the
-row-level formulas in Python, with the report in `output/cells_validation.json`,
-and its compilation in Stata is pending, after which the self-test compares the
-two engines directly. Full estimates on Angrist and Krueger and the calibrated
-simulation remain to be run, and the package contains no empirical table that
-anticipates them.
+cell-level engine introduced in version 0.2.0 was verified against the row-level
+formulas in Python, with the report in `output/cells_validation.json`, and on 9
+October 2026 it compiled in Stata, matched the row-level engine to machine
+precision in the self-test and reproduced the row-level Angrist and Krueger
+estimates with 3 excluded instruments exactly. Full estimates with 30 and 180
+instruments and the calibrated simulation remain to be run, and the package
+contains no empirical table that anticipates them.
 
 ## Getting started
 
@@ -47,8 +48,9 @@ do do/run_card_checks.do
 data through `bcuse` and writes `output/acceptance.log`.
 
 For Angrist and Krueger, the official extract is downloaded from the terminal
-and the pipeline then runs in Stata. The downloader records the SHA-256 hash of
-the source archive.
+and the pipeline then runs in Stata. The downloader compares the size and the
+SHA-256 hash of the archive with the tracked record in
+`data/asciiqob.zip.source.json` and stops on any difference.
 
 ```bash
 python3 python/download_data.py ak-minimal
@@ -67,9 +69,10 @@ do do/30_mc.do
 raised before a final simulation, and the large simulation should only follow
 the synthetic and Card checks. The Mata engine performs no network operation.
 On Stata/BE 19.0 a single row-level CUE estimate with 3 excluded instruments
-took about six minutes on the full sample, and since the row-level cost grows
-with the square of the number of moments the pipeline passes the cell index
-built by `20_ak_prepare.do` to every call of `geliv`.
+took 362 seconds on the full sample, against 52 seconds for the same estimate
+with `cells()` and 80 seconds for ET. Since the row-level cost grows with the
+square of the number of moments, the pipeline passes the cell index built by
+`20_ak_prepare.do` to every call of `geliv`.
 
 ## Interface
 
@@ -203,6 +206,12 @@ coverage, AR, K and CLR coverage and failures. Bias and RMSE are conditional on
 success, while coverage also reports lower and upper bounds that account for
 failures. The coverage of the robust tests is a property of the test procedure
 for the model as a whole.
+
+`MANIFEST.sha256` lists the SHA-256 hash of every tracked file and is rebuilt
+with `python3 python/write_manifest.py` after any change, so that
+`sha256sum -c MANIFEST.sha256` verifies a checkout. The only tracked files that
+scripts rewrite are the manifest itself and the validation reports in `output/`,
+which record the run that produced them.
 
 `docs/MATHEMATICS.md` contains formulas, normalizations and interpretation,
 `docs/DATA.md` the sources and the full extract, and `docs/VALIDATION.md` the

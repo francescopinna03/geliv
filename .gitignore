@@ -1,7 +1,9 @@
 .DS_Store
 *.log
 *.dta
+*.ster
 data/*.zip
 data/*.txt
 data/*.rar
+data/*.check.json
 python/__pycache__/
