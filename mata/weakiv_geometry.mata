@@ -11,6 +11,7 @@ real rowvector gel_full_tests(struct gel_data scalar d,real rowvector theta)
     real matrix O,D,G,Z,X,C,A,B
     real colvector g,u,h,t
     real scalar a,c,j,AR,K
+    if(d.cells) _error(3498)
     g=J(d.m,1,0); O=J(d.m,d.m,0); D=J(d.m,d.p,0)
     for(a=1;a<=d.n;a=a+d.block) {
         c=min((a+d.block-1,d.n))
