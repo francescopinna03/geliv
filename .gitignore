@@ -1,0 +1,7 @@
+.DS_Store
+*.log
+*.dta
+data/*.zip
+data/*.txt
+data/*.rar
+python/__pycache__/
